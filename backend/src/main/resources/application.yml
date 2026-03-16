@@ -1,0 +1,22 @@
+spring:
+  datasource:
+    url: jdbc:h2:file:./bank_assets
+    username: sa
+    password:
+  h2:
+    console:
+      enabled: true
+  jpa:
+    hibernate:
+      ddl-auto: update
+    database-platform: org.hibernate.dialect.H2Dialect
+
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+app:
+  jwt:
+    secret: local-development-secret-key-256-bits-long
+    expiration-ms: 86400000
