@@ -40,10 +40,7 @@ public class AssetService {
                 .build();
 
         asset = assetRepository.save(asset);
-
-        // Generate QR pointing to asset detail URL
-        String qr = qrCodeService.generateQrCodeBase64("SBAMS-ASSET-" + asset.getId());
-        asset.setQrCodeBase64(qr);
+        asset.setQrCodeBase64(qrCodeService.generateForAsset(asset, null));
         asset = assetRepository.save(asset);
 
         auditService.log("ASSET_CREATED", "Asset", asset.getId(), "Asset registered: " + asset.getName());
@@ -93,9 +90,7 @@ public class AssetService {
         statusHistoryRepository.save(history);
 
         asset.setStatus(request.getStatus());
-        assetRepository.save(asset);
 
-        // If changing assigned asset to a status where it no longer belongs to anyone, mark the assignment as returned
         if (previousStatus == AssetStatus.ASSIGNED && (request.getStatus() == AssetStatus.WRITTEN_OFF || request.getStatus() == AssetStatus.LOST)) {
             Optional<AssetAssignment> activeAssignment = assignmentRepository.findByAssetIdAndActiveTrue(id);
             if (activeAssignment.isPresent()) {
@@ -108,8 +103,10 @@ public class AssetService {
             }
         }
 
-        auditService.log("STATUS_CHANGED", "Asset", id,
-                previousStatus + " -> " + request.getStatus());
+        asset.setQrCodeBase64(qrCodeService.generateForAsset(asset, null));
+        assetRepository.save(asset);
+
+        auditService.log("STATUS_CHANGED", "Asset", id, previousStatus + " -> " + request.getStatus());
         return toResponse(asset);
     }
 
@@ -120,7 +117,12 @@ public class AssetService {
         auditService.log("ASSET_DELETED", "Asset", id, "Asset deleted: " + asset.getName());
     }
 
-    // QR lookup
+    @Transactional
+    public void regenerateQr(Asset asset, AssetAssignment activeAssignment) {
+        asset.setQrCodeBase64(qrCodeService.generateForAsset(asset, activeAssignment));
+        assetRepository.save(asset);
+    }
+
     public AssetResponse lookupByQr(Long assetId) {
         return getAssetById(assetId);
     }

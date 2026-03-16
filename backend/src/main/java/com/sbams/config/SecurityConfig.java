@@ -2,6 +2,7 @@ package com.sbams.config;
 
 import com.sbams.model.*;
 import com.sbams.repository.*;
+import com.sbams.service.QrCodeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
@@ -105,7 +106,6 @@ public class SecurityConfig {
         return source;
     }
 
-    // Seed default admin user on startup
     @Bean
     public CommandLineRunner seedAdmin(SystemUserRepository repo, PasswordEncoder encoder) {
         return args -> {
@@ -126,37 +126,52 @@ public class SecurityConfig {
         };
     }
 
-    // Seed test data on startup
     @Bean
-    public CommandLineRunner seedData(AssetRepository assetRepo, EmployeeRepository employeeRepo, AssetAssignmentRepository assignmentRepo) {
+    public CommandLineRunner seedData(
+            AssetRepository assetRepo,
+            EmployeeRepository employeeRepo,
+            AssetAssignmentRepository assignmentRepo,
+            QrCodeService qrCodeService) {
         return args -> {
             if (assetRepo.count() == 0) {
-                assetRepo.save(Asset.builder().name("Dell Laptop").category("Laptop").serialNumber("SN001").status(AssetStatus.REGISTERED).location("Office 101").build());
-                assetRepo.save(Asset.builder().name("HP Printer").category("Printer").serialNumber("SN002").status(AssetStatus.ASSIGNED).location("Office 102").build());
-                assetRepo.save(Asset.builder().name("iPhone 12").category("Mobile").serialNumber("SN003").status(AssetStatus.IN_REPAIR).location("IT Department").build());
-                assetRepo.save(Asset.builder().name("MacBook Pro").category("Laptop").serialNumber("SN004").status(AssetStatus.REGISTERED).location("Office 103").build());
-                assetRepo.save(Asset.builder().name("Projector").category("Equipment").serialNumber("SN005").status(AssetStatus.LOST).location("Conference Room").build());
+                Asset[] seedAssets = {
+                    Asset.builder().name("Dell Laptop").category("Laptop")   .serialNumber("SN001").status(AssetStatus.REGISTERED).location("Office 101")     .build(),
+                    Asset.builder().name("HP Printer") .category("Printer")  .serialNumber("SN002").status(AssetStatus.REGISTERED).location("Office 102")     .build(),
+                    Asset.builder().name("iPhone 12")  .category("Mobile")   .serialNumber("SN003").status(AssetStatus.IN_REPAIR) .location("IT Department")  .build(),
+                    Asset.builder().name("MacBook Pro").category("Laptop")   .serialNumber("SN004").status(AssetStatus.REGISTERED).location("Office 103")     .build(),
+                    Asset.builder().name("Projector")  .category("Equipment").serialNumber("SN005").status(AssetStatus.LOST)      .location("Conference Room").build(),
+                };
+                for (Asset a : seedAssets) {
+                    a = assetRepo.save(a);
+                    a.setQrCodeBase64(qrCodeService.generateForAsset(a, null));
+                    assetRepo.save(a);
+                }
             }
+
             if (employeeRepo.count() == 0) {
-                employeeRepo.save(Employee.builder().fullName("John Doe").email("john.doe@bank.com").department("IT").position("Developer").build());
-                employeeRepo.save(Employee.builder().fullName("Jane Smith").email("jane.smith@bank.com").department("HR").position("Manager").build());
-                employeeRepo.save(Employee.builder().fullName("Bob Johnson").email("bob.johnson@bank.com").department("Finance").position("Analyst").build());
+                employeeRepo.save(Employee.builder().fullName("John Doe")   .email("john.doe@bank.com")   .department("IT")     .position("Developer").build());
+                employeeRepo.save(Employee.builder().fullName("Jane Smith") .email("jane.smith@bank.com") .department("HR")     .position("Manager")  .build());
+                employeeRepo.save(Employee.builder().fullName("Bob Johnson").email("bob.johnson@bank.com").department("Finance").position("Analyst")  .build());
             }
 
             if (assignmentRepo.count() == 0) {
-                var john = employeeRepo.findByEmail("john.doe@bank.com").orElse(null);
-                var jane = employeeRepo.findByEmail("jane.smith@bank.com").orElse(null);
-                var laptop = assetRepo.findBySerialNumber("SN001").orElse(null);
+                var john    = employeeRepo.findByEmail("john.doe@bank.com").orElse(null);
+                var jane    = employeeRepo.findByEmail("jane.smith@bank.com").orElse(null);
+                var laptop  = assetRepo.findBySerialNumber("SN001").orElse(null);
                 var printer = assetRepo.findBySerialNumber("SN002").orElse(null);
 
                 if (john != null && laptop != null) {
-                    assignmentRepo.save(AssetAssignment.builder().asset(laptop).employee(john).active(true).build());
+                    AssetAssignment a = assignmentRepo.save(
+                        AssetAssignment.builder().asset(laptop).employee(john).active(true).build());
                     laptop.setStatus(AssetStatus.ASSIGNED);
+                    laptop.setQrCodeBase64(qrCodeService.generateForAsset(laptop, a));
                     assetRepo.save(laptop);
                 }
                 if (jane != null && printer != null) {
-                    assignmentRepo.save(AssetAssignment.builder().asset(printer).employee(jane).active(true).build());
+                    AssetAssignment a = assignmentRepo.save(
+                        AssetAssignment.builder().asset(printer).employee(jane).active(true).build());
                     printer.setStatus(AssetStatus.ASSIGNED);
+                    printer.setQrCodeBase64(qrCodeService.generateForAsset(printer, a));
                     assetRepo.save(printer);
                 }
             }

@@ -5,6 +5,8 @@ import com.google.zxing.WriterException;
 import com.google.zxing.client.j2se.MatrixToImageWriter;
 import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.QRCodeWriter;
+import com.sbams.model.Asset;
+import com.sbams.model.AssetAssignment;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
@@ -16,6 +18,19 @@ public class QrCodeService {
 
     private static final int QR_SIZE = 250;
 
+    public String generateForAsset(Asset asset, AssetAssignment activeAssignment) {
+        String assignedTo = (activeAssignment != null && activeAssignment.getEmployee() != null)
+                ? activeAssignment.getEmployee().getFullName()
+                : "Unassigned";
+        String content = "Name: "        + nvl(asset.getName())        + "\n"
+                       + "Category: "    + nvl(asset.getCategory())    + "\n"
+                       + "Serial: "      + nvl(asset.getSerialNumber()) + "\n"
+                       + "Status: "      + nvl(asset.getStatus())       + "\n"
+                       + "Location: "    + nvl(asset.getLocation())     + "\n"
+                       + "Assigned To: " + assignedTo;
+        return generateQrCodeBase64(content);
+    }
+
     public String generateQrCodeBase64(String content) {
         try {
             QRCodeWriter writer = new QRCodeWriter();
@@ -26,5 +41,9 @@ public class QrCodeService {
         } catch (WriterException | IOException e) {
             throw new RuntimeException("Failed to generate QR code", e);
         }
+    }
+
+    private String nvl(Object value) {
+        return value != null ? value.toString() : "-";
     }
 }

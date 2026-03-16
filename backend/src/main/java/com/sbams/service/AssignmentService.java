@@ -6,6 +6,7 @@ import com.sbams.dto.AssignmentResponse;
 import com.sbams.model.*;
 import com.sbams.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +23,8 @@ public class AssignmentService {
     private final EmployeeRepository employeeRepository;
     private final AssetStatusHistoryRepository statusHistoryRepository;
     private final AuditService auditService;
+    @Lazy
+    private final AssetService assetService;
 
     @Transactional
     public AssignmentResponse assignAsset(AssignmentRequest request) {
@@ -47,10 +50,11 @@ public class AssignmentService {
                 .build();
         assignment = assignmentRepository.save(assignment);
 
-        // Update asset status
         recordStatusChange(asset, AssetStatus.ASSIGNED, "Assigned to " + employee.getFullName());
         asset.setStatus(AssetStatus.ASSIGNED);
         assetRepository.save(asset);
+
+        assetService.regenerateQr(asset, assignment);
 
         auditService.log("ASSET_ASSIGNED", "AssetAssignment", assignment.getId(),
                 "Asset " + asset.getName() + " assigned to " + employee.getFullName());
@@ -75,6 +79,8 @@ public class AssignmentService {
         recordStatusChange(asset, AssetStatus.REGISTERED, "Returned by " + assignment.getEmployee().getFullName());
         asset.setStatus(AssetStatus.REGISTERED);
         assetRepository.save(asset);
+
+        assetService.regenerateQr(asset, null);
 
         auditService.log("ASSET_RETURNED", "AssetAssignment", assignmentId,
                 "Asset " + asset.getName() + " returned");
