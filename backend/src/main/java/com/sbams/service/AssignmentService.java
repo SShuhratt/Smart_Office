@@ -7,6 +7,7 @@ import com.sbams.model.*;
 import com.sbams.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -71,6 +72,13 @@ public class AssignmentService {
             throw new IllegalStateException("Assignment is already closed.");
         }
 
+        // Security check
+        String role = getCurrentUserRole();
+        String username = getCurrentUsername();
+        if (!"ADMIN".equals(role) && !assignment.getEmployee().getEmail().equals(username)) {
+            throw new SecurityException("Access denied: You cannot return this asset.");
+        }
+
         assignment.setActive(false);
         assignment.setReturnedAt(LocalDateTime.now());
         assignmentRepository.save(assignment);
@@ -86,6 +94,23 @@ public class AssignmentService {
                 "Asset " + asset.getName() + " returned");
 
         return toResponse(assignment);
+    }
+
+    private String getCurrentUsername() {
+        try {
+            return SecurityContextHolder.getContext().getAuthentication().getName();
+        } catch (Exception e) {
+            return "system";
+        }
+    }
+
+    private String getCurrentUserRole() {
+        try {
+            return SecurityContextHolder.getContext().getAuthentication().getAuthorities()
+                    .stream().findFirst().get().getAuthority().replace("ROLE_", "");
+        } catch (Exception e) {
+            return "UNKNOWN";
+        }
     }
 
     public List<AssignmentResponse> getAssignmentsByEmployee(Long employeeId) {

@@ -48,8 +48,13 @@ public class AssetService {
     }
 
     public List<AssetResponse> getAllAssets(String status, String category, String search) {
+        String username = getCurrentUsername();
+        String role = getCurrentUserRole();
+        
         List<Asset> assets;
-        if (search != null && !search.isBlank()) {
+        if ("USER".equals(role)) {
+            assets = assetRepository.findByActiveEmployeeEmail(username);
+        } else if (search != null && !search.isBlank()) {
             assets = assetRepository.findByNameContainingIgnoreCase(search);
         } else if (status != null) {
             assets = assetRepository.findByStatus(AssetStatus.valueOf(status.toUpperCase()));
@@ -63,12 +68,33 @@ public class AssetService {
 
     public AssetResponse getAssetById(Long id) {
         Asset asset = findAssetById(id);
+        
+        // Ownership check for USER role
+        if ("USER".equals(getCurrentUserRole())) {
+            if (!isOwner(id, getCurrentUsername())) {
+                throw new SecurityException("Access denied to asset: " + id);
+            }
+        }
+        
         return toResponseWithHistory(asset);
     }
 
     @Transactional
     public AssetResponse updateAssetStatus(Long id, StatusUpdateRequest request) {
         Asset asset = findAssetById(id);
+
+        // Security check
+        String role = getCurrentUserRole();
+        String username = getCurrentUsername();
+        if (!"ADMIN".equals(role)) {
+            if (!isOwner(id, username)) {
+                throw new SecurityException("Access denied: You don't own this asset.");
+            }
+            // Non-admins can only set certain statuses (e.g., return it or report repair)
+            if (!List.of(AssetStatus.REGISTERED, AssetStatus.IN_REPAIR, AssetStatus.LOST).contains(request.getStatus())) {
+                throw new IllegalArgumentException("Unauthorized status change to: " + request.getStatus());
+            }
+        }
 
         if (asset.getStatus() == AssetStatus.LOST) {
             throw new IllegalStateException("Lost assets cannot have their status changed");
@@ -91,7 +117,8 @@ public class AssetService {
 
         asset.setStatus(request.getStatus());
 
-        if (previousStatus == AssetStatus.ASSIGNED && (request.getStatus() == AssetStatus.WRITTEN_OFF || request.getStatus() == AssetStatus.LOST)) {
+        if (previousStatus == AssetStatus.ASSIGNED && 
+            (request.getStatus() == AssetStatus.REGISTERED || request.getStatus() == AssetStatus.WRITTEN_OFF || request.getStatus() == AssetStatus.LOST)) {
             Optional<AssetAssignment> activeAssignment = assignmentRepository.findByAssetIdAndActiveTrue(id);
             if (activeAssignment.isPresent()) {
                 AssetAssignment assignment = activeAssignment.get();
@@ -138,6 +165,19 @@ public class AssetService {
         } catch (Exception e) {
             return "system";
         }
+    }
+
+    private String getCurrentUserRole() {
+        try {
+            return SecurityContextHolder.getContext().getAuthentication().getAuthorities()
+                    .stream().findFirst().get().getAuthority().replace("ROLE_", "");
+        } catch (Exception e) {
+            return "UNKNOWN";
+        }
+    }
+
+    public boolean isOwner(Long assetId, String email) {
+        return assignmentRepository.existsByAssetIdAndEmployeeEmailAndActiveTrue(assetId, email);
     }
 
     private AssetResponse toResponse(Asset asset) {

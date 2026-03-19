@@ -40,7 +40,7 @@ public class AssetController {
     }
 
     @PutMapping("/{id}/status")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','AUDITOR','USER')")
     public ResponseEntity<AssetResponse> updateStatus(
             @PathVariable Long id,
             @Valid @RequestBody StatusUpdateRequest request) {

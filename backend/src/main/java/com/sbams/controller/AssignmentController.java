@@ -26,7 +26,7 @@ public class AssignmentController {
     }
 
     @PutMapping("/{id}/return")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','AUDITOR','USER')")
     public ResponseEntity<AssignmentResponse> returnAsset(@PathVariable Long id) {
         return ResponseEntity.ok(assignmentService.returnAsset(id));
     }

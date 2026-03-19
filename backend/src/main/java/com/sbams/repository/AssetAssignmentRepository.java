@@ -20,5 +20,7 @@ public interface AssetAssignmentRepository extends JpaRepository<AssetAssignment
 
     boolean existsByAssetIdAndActiveTrue(Long assetId);
 
+    boolean existsByAssetIdAndEmployeeEmailAndActiveTrue(Long assetId, String email);
+
     boolean existsByEmployeeIdAndActiveTrue(Long employeeId);
 }

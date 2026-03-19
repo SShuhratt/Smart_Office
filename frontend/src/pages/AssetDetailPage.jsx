@@ -11,6 +11,7 @@ export default function AssetDetailPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
+  const isUser = user?.role === 'USER';
 
   const [asset, setAsset] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -20,6 +21,15 @@ export default function AssetDetailPage() {
   const [employees, setEmployees] = useState([]);
   const [department, setDepartment] = useState('');
   const [employeeId, setEmployeeId] = useState('');
+
+  const isOwner = asset?.activeAssignment?.employeeEmail === user?.username;
+  const canManage = isAdmin || isOwner;
+
+  const filteredStatuses = useMemo(() => {
+    if (isAdmin) return ALL_STATUSES;
+    // Users/Auditors can only return (REGISTERED), report repair (IN_REPAIR), or lost (LOST)
+    return ['REGISTERED', 'IN_REPAIR', 'LOST'].filter(s => s !== asset?.status);
+  }, [isAdmin, asset?.status]);
 
   const load = () => {
     setLoading(true);
@@ -122,7 +132,7 @@ export default function AssetDetailPage() {
               <InfoRow label="Email" value={asset.activeAssignment.employeeEmail} />
               <InfoRow label="Since" value={fmtDate(asset.activeAssignment.assignedAt)} />
               {asset.activeAssignment.notes && <InfoRow label="Notes" value={asset.activeAssignment.notes} />}
-              {isAdmin && (
+              {canManage && (
                 <button className="btn-danger" style={{ marginTop: '0.75rem' }} onClick={handleReturn}>
                   Return Asset
                 </button>
@@ -134,17 +144,18 @@ export default function AssetDetailPage() {
         </div>
 
         {/* Status Change */}
-        {isAdmin && (
+        {(isAdmin || (isOwner && filteredStatuses.length > 0)) && (
           <div className="card">
             <h2 style={{ fontWeight: 600, marginBottom: '1rem' }}>Update Status</h2>
             <div className="form-group">
               <label>New Status</label>
               <select value={newStatus} onChange={e => setNewStatus(e.target.value)}>
-                {ALL_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                {!isAdmin && <option value="">— select status —</option>}
+                {filteredStatuses.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
 
-            {newStatus === 'ASSIGNED' && (
+            {isAdmin && newStatus === 'ASSIGNED' && (
               <>
                 <div className="form-group">
                   <label>Department</label>
@@ -181,9 +192,9 @@ export default function AssetDetailPage() {
         )}
 
         {/* Status History */}
-        <div className="card" style={{ gridColumn: '1 / -1' }}>
-          <h2 style={{ fontWeight: 600, marginBottom: '1rem' }}>Status History</h2>
-          {asset.statusHistory?.length > 0 ? (
+        {!isUser && asset.statusHistory?.length > 0 ? (
+          <div className="card" style={{ gridColumn: '1 / -1' }}>
+            <h2 style={{ fontWeight: 600, marginBottom: '1rem' }}>Status History</h2>
             <table>
               <thead>
                 <tr><th>Date</th><th>From</th><th>To</th><th>Changed By</th><th>Reason</th></tr>
@@ -200,10 +211,13 @@ export default function AssetDetailPage() {
                 ))}
               </tbody>
             </table>
-          ) : (
-            <p style={{ color: 'var(--text-muted)' }}>No status changes recorded.</p>
-          )}
-        </div>
+          </div>
+        ) : !isUser && (
+          <div className="card" style={{ gridColumn: '1 / -1' }}>
+             <h2 style={{ fontWeight: 600, marginBottom: '1rem' }}>Status History</h2>
+             <p style={{ color: 'var(--text-muted)' }}>No status changes recorded.</p>
+          </div>
+        )}
       </div>
     </div>
   );

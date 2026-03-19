@@ -82,9 +82,14 @@ public class SecurityConfig {
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/auth/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/assets/**", "/qr/**", "/employees/**").authenticated()
-                .requestMatchers("/assets/**", "/assignments/**", "/employees/**").hasRole("ADMIN")
-                .requestMatchers("/reports/**").hasAnyRole("ADMIN", "AUDITOR")
+                .requestMatchers(HttpMethod.GET, "/assets/**", "/qr/**").authenticated()
+                .requestMatchers(HttpMethod.GET, "/employees/**").hasAnyRole("ADMIN", "AUDITOR")
+                .requestMatchers(HttpMethod.PUT, "/assets/*/status", "/assignments/*/return").authenticated()
+                .requestMatchers(HttpMethod.POST, "/assets").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/assets/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/assignments").hasRole("ADMIN")
+                .requestMatchers("/employees/**").hasRole("ADMIN")
+                .requestMatchers("/reports/**").authenticated()
                 .requestMatchers("/audit/**").hasAnyRole("ADMIN", "AUDITOR")
                 .anyRequest().authenticated()
             )
@@ -121,6 +126,13 @@ public class SecurityConfig {
                         .username("auditor")
                         .password(encoder.encode("auditor123"))
                         .role(Role.AUDITOR)
+                        .build());
+            }
+            if (!repo.existsByUsername("john.doe@bank.com")) {
+                repo.save(SystemUser.builder()
+                        .username("john.doe@bank.com")
+                        .password(encoder.encode("user123"))
+                        .role(Role.USER)
                         .build());
             }
         };

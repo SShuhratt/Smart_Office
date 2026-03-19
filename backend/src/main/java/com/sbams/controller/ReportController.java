@@ -16,7 +16,7 @@ public class ReportController {
     private final ReportService reportService;
 
     @GetMapping("/summary")
-    @PreAuthorize("hasAnyRole('ADMIN','AUDITOR')")
+    @PreAuthorize("hasAnyRole('ADMIN','AUDITOR','USER')")
     public ResponseEntity<Map<String, Object>> summary() {
         return ResponseEntity.ok(reportService.getSummary());
     }

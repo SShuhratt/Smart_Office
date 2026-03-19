@@ -24,6 +24,18 @@ public interface AssetRepository extends JpaRepository<Asset, Long> {
     @Query("SELECT a.category, COUNT(a) FROM Asset a GROUP BY a.category")
     List<Object[]> countByCategory();
 
+    @Query("SELECT a FROM Asset a JOIN a.assignments asg WHERE asg.employee.email = :email AND asg.active = true")
+    List<Asset> findByActiveEmployeeEmail(String email);
+
+    @Query("SELECT a.status, COUNT(a) FROM Asset a JOIN a.assignments asg WHERE asg.employee.email = :email AND asg.active = true GROUP BY a.status")
+    List<Object[]> countByStatusForEmployee(String email);
+
+    @Query("SELECT a.category, COUNT(a) FROM Asset a JOIN a.assignments asg WHERE asg.employee.email = :email AND asg.active = true GROUP BY a.category")
+    List<Object[]> countByCategoryForEmployee(String email);
+
+    @Query("SELECT COUNT(a) FROM Asset a JOIN a.assignments asg WHERE asg.employee.email = :email AND asg.active = true")
+    long countByActiveEmployeeEmail(String email);
+
     boolean existsBySerialNumber(String serialNumber);
 
     java.util.Optional<Asset> findBySerialNumber(String serialNumber);

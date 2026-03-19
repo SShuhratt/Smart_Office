@@ -15,6 +15,7 @@ export default function AssetsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
+  const isUser = user?.role === 'USER';
 
   const load = () => {
     setLoading(true);
@@ -41,7 +42,7 @@ export default function AssetsPage() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Assets</h1>
+        <h1 className="page-title">{isUser ? 'My Assets' : 'Assets'}</h1>
         {isAdmin && (
           <button className="btn-primary" onClick={() => navigate('/assets/new')}>
             + Register Asset

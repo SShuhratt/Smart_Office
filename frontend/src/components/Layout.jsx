@@ -15,6 +15,21 @@ export default function Layout() {
 
   const handleLogout = () => { logout(); navigate('/login'); };
 
+  const filteredNav = nav.filter(item => {
+    if (user?.role === 'USER') {
+      return ['/dashboard', '/assets'].includes(item.to);
+    }
+    if (user?.role === 'AUDITOR') {
+      return item.to !== '/assign';
+    }
+    return true; // ADMIN sees all
+  }).map(item => {
+    if (user?.role === 'USER' && item.to === '/assets') {
+      return { ...item, label: '🖥️ My Assets' };
+    }
+    return item;
+  });
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
       {/* Sidebar */}
@@ -30,7 +45,7 @@ export default function Layout() {
           </div>
         </div>
         <nav style={{ flex: 1, padding: '1rem 0' }}>
-          {nav.map(({ to, label }) => (
+          {filteredNav.map(({ to, label }) => (
             <NavLink key={to} to={to} style={({ isActive }) => ({
               display: 'block', padding: '0.6rem 1.25rem',
               color: isActive ? '#fff' : '#94a3b8',
