@@ -1,12 +1,13 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-const nav = [
-  { to: '/dashboard', label: '📊 Dashboard' },
-  { to: '/assets',    label: '🖥️ Assets' },
-  { to: '/employees', label: '👤 Employees' },
-  { to: '/assign',    label: '🔗 Assign Asset' },
-  { to: '/audit',     label: '📋 Audit Log' },
+const allNav = [
+  { to: '/dashboard', label: '📊 Dashboard',    roles: ['ADMIN', 'AUDITOR'] },
+  { to: '/assets',    label: '🖥️ Assets',        roles: ['ADMIN', 'AUDITOR', 'USER'] },
+  { to: '/employees', label: '👤 Employees',     roles: ['ADMIN', 'AUDITOR'] },
+  { to: '/assign',    label: '🔗 Assign Asset',  roles: ['ADMIN'] },
+  { to: '/auditors',  label: '🔍 Auditors',      roles: ['ADMIN'] },
+  { to: '/audit',     label: '📋 Audit Log',     roles: ['ADMIN', 'AUDITOR'] },
 ];
 
 export default function Layout() {
@@ -15,24 +16,16 @@ export default function Layout() {
 
   const handleLogout = () => { logout(); navigate('/login'); };
 
-  const filteredNav = nav.filter(item => {
-    if (user?.role === 'USER') {
-      return ['/dashboard', '/assets'].includes(item.to);
-    }
-    if (user?.role === 'AUDITOR') {
-      return item.to !== '/assign';
-    }
-    return true; // ADMIN sees all
-  }).map(item => {
-    if (user?.role === 'USER' && item.to === '/assets') {
-      return { ...item, label: '🖥️ My Assets' };
-    }
-    return item;
-  });
+  const nav = allNav
+    .filter(item => item.roles.includes(user?.role))
+    .map(item =>
+      user?.role === 'USER' && item.to === '/assets'
+        ? { ...item, label: '🖥️ My Assets' }
+        : item
+    );
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
-      {/* Sidebar */}
       <aside style={{
         width: 220, background: '#1e293b', color: '#f1f5f9',
         display: 'flex', flexDirection: 'column', padding: '1.5rem 0',
@@ -45,7 +38,7 @@ export default function Layout() {
           </div>
         </div>
         <nav style={{ flex: 1, padding: '1rem 0' }}>
-          {filteredNav.map(({ to, label }) => (
+          {nav.map(({ to, label }) => (
             <NavLink key={to} to={to} style={({ isActive }) => ({
               display: 'block', padding: '0.6rem 1.25rem',
               color: isActive ? '#fff' : '#94a3b8',
@@ -68,8 +61,6 @@ export default function Layout() {
           </button>
         </div>
       </aside>
-
-      {/* Main */}
       <main style={{ marginLeft: 220, flex: 1, padding: '2rem' }}>
         <Outlet />
       </main>

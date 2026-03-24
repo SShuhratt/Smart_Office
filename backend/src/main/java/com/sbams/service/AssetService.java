@@ -8,8 +8,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -50,7 +53,7 @@ public class AssetService {
     public List<AssetResponse> getAllAssets(String status, String category, String search) {
         String username = getCurrentUsername();
         String role = getCurrentUserRole();
-        
+
         List<Asset> assets;
         if ("USER".equals(role)) {
             assets = assetRepository.findByActiveEmployeeEmail(username);
@@ -68,14 +71,13 @@ public class AssetService {
 
     public AssetResponse getAssetById(Long id) {
         Asset asset = findAssetById(id);
-        
-        // Ownership check for USER role
+
         if ("USER".equals(getCurrentUserRole())) {
             if (!isOwner(id, getCurrentUsername())) {
                 throw new SecurityException("Access denied to asset: " + id);
             }
         }
-        
+
         return toResponseWithHistory(asset);
     }
 
@@ -83,15 +85,14 @@ public class AssetService {
     public AssetResponse updateAssetStatus(Long id, StatusUpdateRequest request) {
         Asset asset = findAssetById(id);
 
-        // Security check
         String role = getCurrentUserRole();
         String username = getCurrentUsername();
         if (!"ADMIN".equals(role)) {
             if (!isOwner(id, username)) {
                 throw new SecurityException("Access denied: You don't own this asset.");
             }
-            // Non-admins can only set certain statuses (e.g., return it or report repair)
-            if (!List.of(AssetStatus.REGISTERED, AssetStatus.IN_REPAIR, AssetStatus.LOST).contains(request.getStatus())) {
+            if (!List.of(AssetStatus.REGISTERED, AssetStatus.IN_REPAIR, AssetStatus.LOST)
+                    .contains(request.getStatus())) {
                 throw new IllegalArgumentException("Unauthorized status change to: " + request.getStatus());
             }
         }
@@ -100,8 +101,11 @@ public class AssetService {
             throw new IllegalStateException("Lost assets cannot have their status changed");
         }
 
-        if (asset.getStatus() == AssetStatus.ASSIGNED && !List.of(AssetStatus.REGISTERED, AssetStatus.WRITTEN_OFF, AssetStatus.LOST).contains(request.getStatus())) {
-            throw new IllegalStateException("Assigned assets can only be changed to REGISTERED, WRITTEN_OFF, or LOST status");
+        if (asset.getStatus() == AssetStatus.ASSIGNED &&
+                !List.of(AssetStatus.REGISTERED, AssetStatus.WRITTEN_OFF, AssetStatus.LOST)
+                        .contains(request.getStatus())) {
+            throw new IllegalStateException(
+                    "Assigned assets can only be changed to REGISTERED, WRITTEN_OFF, or LOST status");
         }
 
         AssetStatus previousStatus = asset.getStatus();
@@ -117,8 +121,10 @@ public class AssetService {
 
         asset.setStatus(request.getStatus());
 
-        if (previousStatus == AssetStatus.ASSIGNED && 
-            (request.getStatus() == AssetStatus.REGISTERED || request.getStatus() == AssetStatus.WRITTEN_OFF || request.getStatus() == AssetStatus.LOST)) {
+        if (previousStatus == AssetStatus.ASSIGNED &&
+                (request.getStatus() == AssetStatus.REGISTERED ||
+                 request.getStatus() == AssetStatus.WRITTEN_OFF ||
+                 request.getStatus() == AssetStatus.LOST)) {
             Optional<AssetAssignment> activeAssignment = assignmentRepository.findByAssetIdAndActiveTrue(id);
             if (activeAssignment.isPresent()) {
                 AssetAssignment assignment = activeAssignment.get();
@@ -138,6 +144,35 @@ public class AssetService {
     }
 
     @Transactional
+    public AssetResponse uploadImage(Long id, MultipartFile file) {
+        Asset asset = findAssetById(id);
+
+        String role = getCurrentUserRole();
+        if (!"ADMIN".equals(role)) {
+            if (!isOwner(id, getCurrentUsername())) {
+                throw new SecurityException("Access denied: You don't own this asset.");
+            }
+        }
+
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new IllegalArgumentException("Only image files are allowed.");
+        }
+
+        try {
+            byte[] bytes = file.getBytes();
+            String base64 = Base64.getEncoder().encodeToString(bytes);
+            asset.setImageBase64("data:" + contentType + ";base64," + base64);
+            assetRepository.save(asset);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to read uploaded file.", e);
+        }
+
+        auditService.log("IMAGE_UPLOADED", "Asset", id, "Image uploaded for: " + asset.getName());
+        return toResponse(asset);
+    }
+
+    @Transactional
     public void deleteAsset(Long id) {
         Asset asset = findAssetById(id);
         assetRepository.delete(asset);
@@ -152,6 +187,10 @@ public class AssetService {
 
     public AssetResponse lookupByQr(Long assetId) {
         return getAssetById(assetId);
+    }
+
+    public boolean isOwner(Long assetId, String email) {
+        return assignmentRepository.existsByAssetIdAndEmployeeEmailAndActiveTrue(assetId, email);
     }
 
     private Asset findAssetById(Long id) {
@@ -176,10 +215,6 @@ public class AssetService {
         }
     }
 
-    public boolean isOwner(Long assetId, String email) {
-        return assignmentRepository.existsByAssetIdAndEmployeeEmailAndActiveTrue(assetId, email);
-    }
-
     private AssetResponse toResponse(Asset asset) {
         AssignmentResponse activeAssignment = assignmentRepository
                 .findByAssetIdAndActiveTrue(asset.getId())
@@ -193,6 +228,7 @@ public class AssetService {
                 .serialNumber(asset.getSerialNumber())
                 .status(asset.getStatus())
                 .qrCodeBase64(asset.getQrCodeBase64())
+                .imageBase64(asset.getImageBase64())
                 .location(asset.getLocation())
                 .description(asset.getDescription())
                 .createdAt(asset.getCreatedAt())

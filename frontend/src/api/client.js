@@ -31,6 +31,13 @@ export const getAsset = (id) => api.get(`/assets/${id}`);
 export const createAsset = (data) => api.post('/assets', data);
 export const updateAssetStatus = (id, data) => api.put(`/assets/${id}/status`, data);
 export const deleteAsset = (id) => api.delete(`/assets/${id}`);
+export const uploadAssetImage = (id, file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  return api.put(`/assets/${id}/image`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
 
 // Assignments
 export const assignAsset = (data) => api.post('/assignments', data);
@@ -42,6 +49,11 @@ export const getEmployee = (id) => api.get(`/employees/${id}`);
 export const createEmployee = (data) => api.post('/employees', data);
 export const updateEmployee = (id, data) => api.put(`/employees/${id}`, data);
 export const deleteEmployee = (id) => api.delete(`/employees/${id}`);
+
+// System users (admin/auditor accounts)
+export const getSystemUsers = () => api.get('/system-users');
+export const createSystemUser = (data) => api.post('/system-users', data);
+export const deleteSystemUser = (id) => api.delete(`/system-users/${id}`);
 
 // QR
 export const qrLookup = (assetId) => api.get(`/qr/${assetId}`);

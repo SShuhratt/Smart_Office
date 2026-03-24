@@ -24,4 +24,10 @@ public class SystemUser {
 
     @Builder.Default
     private boolean enabled = true;
+
+    /** Display name — used for AUDITOR and ADMIN accounts. */
+    private String fullName;
+
+    /** Contact email — used for AUDITOR and ADMIN accounts. */
+    private String email;
 }

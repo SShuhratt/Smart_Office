@@ -12,4 +12,9 @@ public class EmployeeRequest {
     private String email;
     private String department;
     private String position;
+    private String phone;
+    /** Login username for the employee's system account. Defaults to email if blank. */
+    private String username;
+    /** Login password. Required when creating a new employee. */
+    private String password;
 }

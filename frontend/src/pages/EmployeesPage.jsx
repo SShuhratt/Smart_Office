@@ -3,14 +3,15 @@ import { getEmployees, createEmployee, deleteEmployee } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 
 export default function EmployeesPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
+
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ fullName: '', email: '', department: '', position: '' });
+  const [form, setForm] = useState({ fullName: '', email: '', department: '', position: '', username: '', password: '' });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-  const { user } = useAuth();
-  const isAdmin = user?.role === 'ADMIN';
 
   const load = () => {
     setLoading(true);
@@ -27,7 +28,7 @@ export default function EmployeesPage() {
     setSaving(true);
     try {
       await createEmployee(form);
-      setForm({ fullName: '', email: '', department: '', position: '' });
+      setForm({ fullName: '', email: '', department: '', position: '', username: '', password: '' });
       setShowForm(false);
       load();
     } catch (err) {
@@ -36,7 +37,7 @@ export default function EmployeesPage() {
   };
 
   const handleDelete = async (id, name) => {
-    if (!window.confirm(`Remove employee "${name}"?`)) return;
+    if (!window.confirm(`Remove employee "${name}"? Their login account will also be deleted.`)) return;
     await deleteEmployee(id);
     load();
   };
@@ -51,7 +52,7 @@ export default function EmployeesPage() {
       </div>
 
       {showForm && (
-        <div className="card" style={{ maxWidth: 520, marginBottom: '1.5rem' }}>
+        <div className="card" style={{ maxWidth: 560, marginBottom: '1.5rem' }}>
           <h2 style={{ fontWeight: 600, marginBottom: '1rem' }}>New Employee</h2>
           <form onSubmit={handleCreate}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
@@ -71,6 +72,14 @@ export default function EmployeesPage() {
                 <label>Position</label>
                 <input value={form.position} onChange={set('position')} />
               </div>
+              <div className="form-group">
+                <label>Login Username <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(defaults to email)</span></label>
+                <input value={form.username} onChange={set('username')} placeholder="leave blank to use email" />
+              </div>
+              <div className="form-group">
+                <label>Login Password <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(defaults to user123)</span></label>
+                <input type="password" value={form.password} onChange={set('password')} placeholder="leave blank for default" />
+              </div>
             </div>
             {error && <p className="error-msg">{error}</p>}
             <div style={{ display: 'flex', gap: '0.75rem' }}>
@@ -86,7 +95,8 @@ export default function EmployeesPage() {
           <table>
             <thead>
               <tr>
-                <th>Name</th><th>Email</th><th>Department</th><th>Position</th><th>Assets</th>{isAdmin && <th>Actions</th>}
+                <th>Name</th><th>Email</th><th>Department</th><th>Position</th><th>Assets</th>
+                {isAdmin && <th>Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -98,11 +108,7 @@ export default function EmployeesPage() {
                   <td>{emp.email}</td>
                   <td>{emp.department || '—'}</td>
                   <td>{emp.position || '—'}</td>
-                  <td>
-                    {emp.activeAssignments?.length > 0
-                      ? emp.activeAssignments.map(a => a.assetName).join(', ')
-                      : '—'}
-                  </td>
+                  <td>{emp.activeAssignments?.length > 0 ? emp.activeAssignments.map(a => a.assetName).join(', ') : '—'}</td>
                   {isAdmin && (
                     <td>
                       <button className="btn-danger" onClick={() => handleDelete(emp.id, emp.fullName)}>Remove</button>

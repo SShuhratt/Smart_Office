@@ -37,6 +37,9 @@ public class Asset {
     @Column(columnDefinition = "TEXT")
     private String qrCodeBase64;
 
+    @Column(columnDefinition = "TEXT")
+    private String imageBase64;
+
     private String location;
 
     private String description;

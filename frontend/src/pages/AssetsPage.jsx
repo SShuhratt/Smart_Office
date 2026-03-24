@@ -11,7 +11,8 @@ export default function AssetsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
-  const [qrModal, setQrModal] = useState(null); // { name, src }
+  const [qrModal, setQrModal] = useState(null);
+  const [imgModal, setImgModal] = useState(null);
   const navigate = useNavigate();
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
@@ -32,10 +33,10 @@ export default function AssetsPage() {
     load();
   };
 
-  const downloadQr = (name, src) => {
+  const download = (name, src, prefix) => {
     const a = document.createElement('a');
     a.href = src;
-    a.download = `QR-${name.replace(/\s+/g, '_')}.png`;
+    a.download = `${prefix}-${name.replace(/\s+/g, '_')}`;
     a.click();
   };
 
@@ -50,7 +51,6 @@ export default function AssetsPage() {
         )}
       </div>
 
-      {/* Filters */}
       <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem' }}>
         <input
           placeholder="Search by name…"
@@ -72,12 +72,12 @@ export default function AssetsPage() {
               <tr>
                 <th>ID</th><th>Name</th><th>Category</th>
                 <th>Serial</th><th>Status</th><th>Assigned To</th><th>Department</th>
-                <th>QR</th><th>Actions</th>
+                <th>Image</th><th>QR</th><th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {assets.length === 0 ? (
-                <tr><td colSpan={9} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No assets found.</td></tr>
+                <tr><td colSpan={10} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No assets found.</td></tr>
               ) : assets.map(a => (
                 <tr key={a.id}>
                   <td style={{ color: 'var(--text-muted)' }}>#{a.id}</td>
@@ -87,6 +87,19 @@ export default function AssetsPage() {
                   <td><StatusBadge status={a.status} /></td>
                   <td>{a.activeAssignment?.employeeName || '—'}</td>
                   <td>{a.activeAssignment?.employeeDepartment || '—'}</td>
+                  <td>
+                    {a.imageBase64 ? (
+                      <img
+                        src={a.imageBase64}
+                        alt="Asset"
+                        title="Click to enlarge"
+                        style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 4, cursor: 'pointer', display: 'block' }}
+                        onClick={() => setImgModal({ name: a.name, src: a.imageBase64 })}
+                      />
+                    ) : (
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>—</span>
+                    )}
+                  </td>
                   <td>
                     {a.qrCodeBase64 ? (
                       <img
@@ -115,36 +128,52 @@ export default function AssetsPage() {
         </div>
       )}
 
-      {/* QR enlarge modal */}
-      {qrModal && (
-        <div
-          onClick={() => setQrModal(null)}
-          style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
-          }}
-        >
-          <div
-            onClick={e => e.stopPropagation()}
-            style={{
-              background: 'var(--card-bg, #fff)', borderRadius: 12, padding: '1.5rem',
-              textAlign: 'center', boxShadow: '0 8px 32px rgba(0,0,0,0.25)', minWidth: 260,
-            }}
-          >
-            <p style={{ fontWeight: 600, marginBottom: '0.75rem' }}>{qrModal.name}</p>
-            <img src={qrModal.src} alt="QR Code" style={{ width: 220, height: 220 }} />
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '0.5rem 0 1rem' }}>
-              Scan to open asset page
-            </p>
-            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-              <button className="btn-primary" onClick={() => downloadQr(qrModal.name, qrModal.src)}>
-                Download PNG
-              </button>
-              <button className="btn-secondary" onClick={() => setQrModal(null)}>Close</button>
-            </div>
+      {imgModal && (
+        <Modal onClose={() => setImgModal(null)}>
+          <p style={{ fontWeight: 600, marginBottom: '0.75rem' }}>{imgModal.name}</p>
+          <img src={imgModal.src} alt="Asset" style={{ maxWidth: 400, maxHeight: 400, objectFit: 'contain', borderRadius: 6 }} />
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginTop: '1rem' }}>
+            <button className="btn-primary" onClick={() => download(imgModal.name, imgModal.src, 'IMG')}>Download</button>
+            <button className="btn-secondary" onClick={() => setImgModal(null)}>Close</button>
           </div>
-        </div>
+        </Modal>
       )}
+
+      {qrModal && (
+        <Modal onClose={() => setQrModal(null)}>
+          <p style={{ fontWeight: 600, marginBottom: '0.75rem' }}>{qrModal.name}</p>
+          <img src={qrModal.src} alt="QR Code" style={{ width: 220, height: 220 }} />
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '0.5rem 0 1rem' }}>
+            Scan to view asset info
+          </p>
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+            <button className="btn-primary" onClick={() => download(qrModal.name, qrModal.src, 'QR')}>Download PNG</button>
+            <button className="btn-secondary" onClick={() => setQrModal(null)}>Close</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+function Modal({ children, onClose }) {
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: 'var(--surface)', borderRadius: 12, padding: '1.5rem',
+          textAlign: 'center', boxShadow: '0 8px 32px rgba(0,0,0,0.25)', minWidth: 260,
+        }}
+      >
+        {children}
+      </div>
     </div>
   );
 }

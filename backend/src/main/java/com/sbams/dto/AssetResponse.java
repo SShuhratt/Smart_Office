@@ -16,6 +16,7 @@ public class AssetResponse {
     private String serialNumber;
     private AssetStatus status;
     private String qrCodeBase64;
+    private String imageBase64;
     private String location;
     private String description;
     private LocalDateTime createdAt;

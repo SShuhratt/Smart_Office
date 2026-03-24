@@ -4,16 +4,10 @@ import com.sbams.audit.AuditService;
 import com.sbams.dto.AssignmentResponse;
 import com.sbams.dto.EmployeeRequest;
 import com.sbams.dto.EmployeeResponse;
-import com.sbams.model.Asset;
-import com.sbams.model.AssetAssignment;
-import com.sbams.model.AssetStatus;
-import com.sbams.model.AssetStatusHistory;
-import com.sbams.model.Employee;
-import com.sbams.repository.AssetAssignmentRepository;
-import com.sbams.repository.AssetRepository;
-import com.sbams.repository.AssetStatusHistoryRepository;
-import com.sbams.repository.EmployeeRepository;
+import com.sbams.model.*;
+import com.sbams.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +23,8 @@ public class EmployeeService {
     private final AssetAssignmentRepository assignmentRepository;
     private final AssetRepository assetRepository;
     private final AssetStatusHistoryRepository statusHistoryRepository;
+    private final SystemUserRepository systemUserRepository;
+    private final PasswordEncoder passwordEncoder;
     private final AuditService auditService;
 
     @Transactional
@@ -43,6 +39,25 @@ public class EmployeeService {
                 .position(request.getPosition())
                 .build();
         employee = employeeRepository.save(employee);
+
+        // Create login account for the employee
+        String username = (request.getUsername() != null && !request.getUsername().isBlank())
+                ? request.getUsername()
+                : request.getEmail();
+        String password = (request.getPassword() != null && !request.getPassword().isBlank())
+                ? request.getPassword()
+                : "user123";
+
+        if (!systemUserRepository.existsByUsername(username)) {
+            systemUserRepository.save(SystemUser.builder()
+                    .username(username)
+                    .password(passwordEncoder.encode(password))
+                    .role(Role.USER)
+                    .fullName(request.getFullName())
+                    .email(request.getEmail())
+                    .build());
+        }
+
         auditService.log("EMPLOYEE_CREATED", "Employee", employee.getId(), "Employee added: " + employee.getFullName());
         return toResponse(employee);
     }
@@ -70,7 +85,7 @@ public class EmployeeService {
     public void deleteEmployee(Long id) {
         Employee employee = findById(id);
 
-        // Handle active assignments: return assets and change status to REGISTERED
+        // Return all active assets
         List<AssetAssignment> activeAssignments = assignmentRepository.findByEmployeeId(id).stream()
                 .filter(AssetAssignment::isActive)
                 .collect(Collectors.toList());
@@ -80,6 +95,9 @@ public class EmployeeService {
             asset.setStatus(AssetStatus.REGISTERED);
             assetRepository.save(asset);
         }
+
+        // Remove linked system user account
+        systemUserRepository.findByUsername(employee.getEmail()).ifPresent(systemUserRepository::delete);
 
         employeeRepository.delete(employee);
         auditService.log("EMPLOYEE_DELETED", "Employee", id, "Deleted: " + employee.getFullName());
@@ -133,4 +151,3 @@ public class EmployeeService {
                 .build());
     }
 }
-

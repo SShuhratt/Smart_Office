@@ -84,11 +84,14 @@ public class SecurityConfig {
                 .requestMatchers("/auth/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/assets/**", "/qr/**").authenticated()
                 .requestMatchers(HttpMethod.GET, "/employees/**").hasAnyRole("ADMIN", "AUDITOR")
-                .requestMatchers(HttpMethod.PUT, "/assets/*/status", "/assignments/*/return").authenticated()
+                .requestMatchers(HttpMethod.PUT, "/assets/*/status").authenticated()
+                .requestMatchers(HttpMethod.PUT, "/assets/*/image").authenticated()
+                .requestMatchers(HttpMethod.PUT, "/assignments/*/return").authenticated()
                 .requestMatchers(HttpMethod.POST, "/assets").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/assets/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/assignments").hasRole("ADMIN")
                 .requestMatchers("/employees/**").hasRole("ADMIN")
+                .requestMatchers("/system-users/**").hasRole("ADMIN")
                 .requestMatchers("/reports/**").authenticated()
                 .requestMatchers("/audit/**").hasAnyRole("ADMIN", "AUDITOR")
                 .anyRequest().authenticated()
@@ -114,27 +117,14 @@ public class SecurityConfig {
     @Bean
     public CommandLineRunner seedAdmin(SystemUserRepository repo, PasswordEncoder encoder) {
         return args -> {
-            if (!repo.existsByUsername("admin")) {
-                repo.save(SystemUser.builder()
-                        .username("admin")
-                        .password(encoder.encode("admin123"))
-                        .role(Role.ADMIN)
-                        .build());
-            }
-            if (!repo.existsByUsername("auditor")) {
-                repo.save(SystemUser.builder()
-                        .username("auditor")
-                        .password(encoder.encode("auditor123"))
-                        .role(Role.AUDITOR)
-                        .build());
-            }
-            if (!repo.existsByUsername("john.doe@bank.com")) {
-                repo.save(SystemUser.builder()
-                        .username("john.doe@bank.com")
-                        .password(encoder.encode("user123"))
-                        .role(Role.USER)
-                        .build());
-            }
+            // ADMIN accounts
+            seedUser(repo, encoder, "admin",  "admin123",  Role.ADMIN,   "System Administrator", "admin@bank.com");
+            seedUser(repo, encoder, "admin2", "admin123",  Role.ADMIN,   "Ali Karimov",          "ali.karimov@bank.com");
+
+            // AUDITOR accounts
+            seedUser(repo, encoder, "auditor",  "auditor123", Role.AUDITOR, "Sarah Johnson",   "sarah.johnson@bank.com");
+            seedUser(repo, encoder, "auditor2", "auditor123", Role.AUDITOR, "Michael Chen",    "michael.chen@bank.com");
+            seedUser(repo, encoder, "auditor3", "auditor123", Role.AUDITOR, "Fatima Nazarova", "fatima.nazarova@bank.com");
         };
     }
 
@@ -143,15 +133,19 @@ public class SecurityConfig {
             AssetRepository assetRepo,
             EmployeeRepository employeeRepo,
             AssetAssignmentRepository assignmentRepo,
+            SystemUserRepository userRepo,
+            PasswordEncoder encoder,
             QrCodeService qrCodeService) {
         return args -> {
             if (assetRepo.count() == 0) {
                 Asset[] seedAssets = {
-                    Asset.builder().name("Dell Laptop").category("Laptop")   .serialNumber("SN001").status(AssetStatus.REGISTERED).location("Office 101")     .build(),
-                    Asset.builder().name("HP Printer") .category("Printer")  .serialNumber("SN002").status(AssetStatus.REGISTERED).location("Office 102")     .build(),
-                    Asset.builder().name("iPhone 12")  .category("Mobile")   .serialNumber("SN003").status(AssetStatus.IN_REPAIR) .location("IT Department")  .build(),
-                    Asset.builder().name("MacBook Pro").category("Laptop")   .serialNumber("SN004").status(AssetStatus.REGISTERED).location("Office 103")     .build(),
-                    Asset.builder().name("Projector")  .category("Equipment").serialNumber("SN005").status(AssetStatus.LOST)      .location("Conference Room").build(),
+                    Asset.builder().name("Dell Laptop")  .category("Laptop")   .serialNumber("SN001").status(AssetStatus.REGISTERED).location("Office 101")     .build(),
+                    Asset.builder().name("HP Printer")   .category("Printer")  .serialNumber("SN002").status(AssetStatus.REGISTERED).location("Office 102")     .build(),
+                    Asset.builder().name("iPhone 12")    .category("Mobile")   .serialNumber("SN003").status(AssetStatus.IN_REPAIR) .location("IT Department")  .build(),
+                    Asset.builder().name("MacBook Pro")  .category("Laptop")   .serialNumber("SN004").status(AssetStatus.REGISTERED).location("Office 103")     .build(),
+                    Asset.builder().name("Projector")    .category("Equipment").serialNumber("SN005").status(AssetStatus.LOST)      .location("Conference Room").build(),
+                    Asset.builder().name("Cisco IP Phone").category("Phone")   .serialNumber("SN006").status(AssetStatus.REGISTERED).location("Office 104")     .build(),
+                    Asset.builder().name("Samsung Monitor").category("Monitor").serialNumber("SN007").status(AssetStatus.REGISTERED).location("Office 105")     .build(),
                 };
                 for (Asset a : seedAssets) {
                     a = assetRepo.save(a);
@@ -161,16 +155,33 @@ public class SecurityConfig {
             }
 
             if (employeeRepo.count() == 0) {
-                employeeRepo.save(Employee.builder().fullName("John Doe")   .email("john.doe@bank.com")   .department("IT")     .position("Developer").build());
-                employeeRepo.save(Employee.builder().fullName("Jane Smith") .email("jane.smith@bank.com") .department("HR")     .position("Manager")  .build());
-                employeeRepo.save(Employee.builder().fullName("Bob Johnson").email("bob.johnson@bank.com").department("Finance").position("Analyst")  .build());
+                employeeRepo.save(Employee.builder().fullName("John Doe")    .email("john.doe@bank.com")    .department("IT")      .position("Developer")      .build());
+                employeeRepo.save(Employee.builder().fullName("Jane Smith")  .email("jane.smith@bank.com")  .department("HR")      .position("Manager")        .build());
+                employeeRepo.save(Employee.builder().fullName("Bob Johnson") .email("bob.johnson@bank.com") .department("Finance") .position("Analyst")        .build());
+                employeeRepo.save(Employee.builder().fullName("Aisha Tosheva").email("aisha.tosheva@bank.com").department("IT")   .position("DevOps Engineer") .build());
+                employeeRepo.save(Employee.builder().fullName("Rustam Holmatov").email("rustam.holmatov@bank.com").department("Finance").position("Senior Analyst").build());
             }
+
+            // Create USER login accounts for all employees
+            employeeRepo.findAll().forEach(emp -> {
+                if (!userRepo.existsByUsername(emp.getEmail())) {
+                    userRepo.save(SystemUser.builder()
+                            .username(emp.getEmail())
+                            .password(encoder.encode("user123"))
+                            .role(Role.USER)
+                            .fullName(emp.getFullName())
+                            .email(emp.getEmail())
+                            .build());
+                }
+            });
 
             if (assignmentRepo.count() == 0) {
                 var john    = employeeRepo.findByEmail("john.doe@bank.com").orElse(null);
                 var jane    = employeeRepo.findByEmail("jane.smith@bank.com").orElse(null);
+                var aisha   = employeeRepo.findByEmail("aisha.tosheva@bank.com").orElse(null);
                 var laptop  = assetRepo.findBySerialNumber("SN001").orElse(null);
                 var printer = assetRepo.findBySerialNumber("SN002").orElse(null);
+                var phone   = assetRepo.findBySerialNumber("SN006").orElse(null);
 
                 if (john != null && laptop != null) {
                     AssetAssignment a = assignmentRepo.save(
@@ -186,7 +197,28 @@ public class SecurityConfig {
                     printer.setQrCodeBase64(qrCodeService.generateForAsset(printer, a));
                     assetRepo.save(printer);
                 }
+                if (aisha != null && phone != null) {
+                    AssetAssignment a = assignmentRepo.save(
+                        AssetAssignment.builder().asset(phone).employee(aisha).active(true).build());
+                    phone.setStatus(AssetStatus.ASSIGNED);
+                    phone.setQrCodeBase64(qrCodeService.generateForAsset(phone, a));
+                    assetRepo.save(phone);
+                }
             }
         };
+    }
+
+    private void seedUser(SystemUserRepository repo, PasswordEncoder encoder,
+                          String username, String password, Role role,
+                          String fullName, String email) {
+        if (!repo.existsByUsername(username)) {
+            repo.save(SystemUser.builder()
+                    .username(username)
+                    .password(encoder.encode(password))
+                    .role(role)
+                    .fullName(fullName)
+                    .email(email)
+                    .build());
+        }
     }
 }

@@ -7,9 +7,11 @@ import com.sbams.service.AssetService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -45,6 +47,14 @@ public class AssetController {
             @PathVariable Long id,
             @Valid @RequestBody StatusUpdateRequest request) {
         return ResponseEntity.ok(assetService.updateAssetStatus(id, request));
+    }
+
+    @PutMapping(value = "/{id}/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('ADMIN','USER')")
+    public ResponseEntity<AssetResponse> uploadImage(
+            @PathVariable Long id,
+            @RequestPart("file") MultipartFile file) {
+        return ResponseEntity.ok(assetService.uploadImage(id, file));
     }
 
     @DeleteMapping("/{id}")

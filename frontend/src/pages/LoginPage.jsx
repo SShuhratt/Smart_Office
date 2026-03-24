@@ -17,7 +17,7 @@ export default function LoginPage() {
     try {
       const { data } = await apiLogin(form);
       login(data);
-      navigate('/dashboard');
+      navigate(data.role === 'USER' ? '/assets' : '/dashboard');
     } catch (err) {
       setError(err.response?.data?.error || 'Invalid credentials');
     } finally {
