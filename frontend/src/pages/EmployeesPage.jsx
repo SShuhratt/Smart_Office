@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { getEmployees, createEmployee, deleteEmployee } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 
@@ -9,18 +9,29 @@ export default function EmployeesPage() {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ fullName: '', email: '', department: '', position: '', username: '', password: '' });
+  const [form, setForm] = useState({
+    fullName: '',
+    email: '',
+    department: '',
+    position: '',
+    username: '',
+    password: '',
+  });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
   const load = () => {
     setLoading(true);
-    getEmployees().then(({ data }) => setEmployees(data)).finally(() => setLoading(false));
+    getEmployees()
+      .then(({ data }) => setEmployees(data))
+      .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
-  const set = (field) => (e) => setForm(f => ({ ...f, [field]: e.target.value }));
+  const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -28,12 +39,21 @@ export default function EmployeesPage() {
     setSaving(true);
     try {
       await createEmployee(form);
-      setForm({ fullName: '', email: '', department: '', position: '', username: '', password: '' });
+      setForm({
+        fullName: '',
+        email: '',
+        department: '',
+        position: '',
+        username: '',
+        password: '',
+      });
       setShowForm(false);
       load();
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to create employee.');
-    } finally { setSaving(false); }
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async (id, name) => {
@@ -42,20 +62,52 @@ export default function EmployeesPage() {
     load();
   };
 
+  const stats = useMemo(() => {
+    const departments = new Set(employees.map((e) => e.department).filter(Boolean));
+    const withAssets = employees.filter((e) => e.activeAssignments?.length > 0).length;
+
+    return {
+      total: employees.length,
+      departments: departments.size,
+      assigned: withAssets,
+    };
+  }, [employees]);
+
   return (
-    <div>
+    <div className="content-page">
       <div className="page-header">
-        <h1 className="page-title">Employees</h1>
+        <div>
+          <p className="eyebrow">People</p>
+          <h1 className="page-title">Employees</h1>
+          <p className="page-subtitle">
+            Maintain employee records and track which assets are currently assigned.
+          </p>
+        </div>
+
         {isAdmin && !showForm && (
-          <button className="btn-primary" onClick={() => setShowForm(true)}>+ Add Employee</button>
+          <button className="btn-primary" onClick={() => setShowForm(true)}>
+            + Add Employee
+          </button>
         )}
       </div>
 
+      <section className="stats-grid compact-stats">
+        <MiniStat label="Employees" value={stats.total} tone="tone-blue" />
+        <MiniStat label="Departments" value={stats.departments} tone="tone-slate" />
+        <MiniStat label="With Assets" value={stats.assigned} tone="tone-green" />
+      </section>
+
       {showForm && (
-        <div className="card" style={{ maxWidth: 560, marginBottom: '1.5rem' }}>
-          <h2 style={{ fontWeight: 600, marginBottom: '1rem' }}>New Employee</h2>
+        <div className="form-card">
+          <div className="section-head">
+            <div>
+              <h2 className="section-title">New Employee</h2>
+              <p className="section-subtitle">Create a staff account and employee profile</p>
+            </div>
+          </div>
+
           <form onSubmit={handleCreate}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+            <div className="form-grid form-grid-2">
               <div className="form-group">
                 <label>Full Name *</label>
                 <input value={form.fullName} onChange={set('fullName')} required />
@@ -73,53 +125,107 @@ export default function EmployeesPage() {
                 <input value={form.position} onChange={set('position')} />
               </div>
               <div className="form-group">
-                <label>Login Username <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(defaults to email)</span></label>
-                <input value={form.username} onChange={set('username')} placeholder="leave blank to use email" />
+                <label>Login Username</label>
+                <input
+                  value={form.username}
+                  onChange={set('username')}
+                  placeholder="Leave blank to use email"
+                />
               </div>
               <div className="form-group">
-                <label>Login Password <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(defaults to user123)</span></label>
-                <input type="password" value={form.password} onChange={set('password')} placeholder="leave blank for default" />
+                <label>Login Password</label>
+                <input
+                  type="password"
+                  value={form.password}
+                  onChange={set('password')}
+                  placeholder="Leave blank for default"
+                />
               </div>
             </div>
+
             {error && <p className="error-msg">{error}</p>}
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <button type="submit" className="btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Add Employee'}</button>
-              <button type="button" className="btn-secondary" onClick={() => setShowForm(false)}>Cancel</button>
+
+            <div className="form-actions">
+              <button type="submit" className="btn-primary" disabled={saving}>
+                {saving ? 'Saving...' : 'Add Employee'}
+              </button>
+              <button type="button" className="btn-secondary" onClick={() => setShowForm(false)}>
+                Cancel
+              </button>
             </div>
           </form>
         </div>
       )}
 
-      {loading ? <div className="spinner">Loading…</div> : (
-        <div className="card" style={{ padding: 0 }}>
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th><th>Email</th><th>Department</th><th>Position</th><th>Assets</th>
-                {isAdmin && <th>Actions</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {employees.length === 0 ? (
-                <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No employees found.</td></tr>
-              ) : employees.map(emp => (
-                <tr key={emp.id}>
-                  <td style={{ fontWeight: 500 }}>{emp.fullName}</td>
-                  <td>{emp.email}</td>
-                  <td>{emp.department || '—'}</td>
-                  <td>{emp.position || '—'}</td>
-                  <td>{emp.activeAssignments?.length > 0 ? emp.activeAssignments.map(a => a.assetName).join(', ') : '—'}</td>
-                  {isAdmin && (
-                    <td>
-                      <button className="btn-danger" onClick={() => handleDelete(emp.id, emp.fullName)}>Remove</button>
-                    </td>
-                  )}
+      {loading ? (
+        <div className="state-box">Loading employees...</div>
+      ) : (
+        <div className="table-card">
+          <div className="table-header-row">
+            <div>
+              <h2 className="table-title">Employee Directory</h2>
+              <p className="table-subtitle">People, departments, positions, and assigned assets</p>
+            </div>
+          </div>
+
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Department</th>
+                  <th>Position</th>
+                  <th>Assets</th>
+                  {isAdmin && <th>Actions</th>}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {employees.length === 0 ? (
+                  <tr>
+                    <td colSpan={6}>
+                      <div className="empty-row">No employees found.</div>
+                    </td>
+                  </tr>
+                ) : (
+                  employees.map((emp) => (
+                    <tr key={emp.id}>
+                      <td className="strong-cell">{emp.fullName}</td>
+                      <td>{emp.email}</td>
+                      <td>{emp.department || '—'}</td>
+                      <td>{emp.position || '—'}</td>
+                      <td>
+                        {emp.activeAssignments?.length > 0
+                          ? emp.activeAssignments.map((a) => a.assetName).join(', ')
+                          : '—'}
+                      </td>
+                      {isAdmin && (
+                        <td>
+                          <button
+                            className="btn-danger"
+                            onClick={() => handleDelete(emp.id, emp.fullName)}
+                          >
+                            Remove
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function MiniStat({ label, value, tone }) {
+  return (
+    <div className={`mini-stat-card ${tone}`}>
+      <div className="mini-stat-label">{label}</div>
+      <div className="mini-stat-value">{value}</div>
     </div>
   );
 }

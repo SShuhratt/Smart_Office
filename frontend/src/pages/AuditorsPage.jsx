@@ -5,20 +5,28 @@ export default function AuditorsPage() {
   const [auditors, setAuditors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ username: '', password: '', role: 'AUDITOR', fullName: '', email: '' });
+  const [form, setForm] = useState({
+    username: '',
+    password: '',
+    role: 'AUDITOR',
+    fullName: '',
+    email: '',
+  });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
   const load = () => {
     setLoading(true);
     getSystemUsers()
-      .then(({ data }) => setAuditors(data.filter(u => u.role === 'AUDITOR')))
+      .then(({ data }) => setAuditors(data.filter((u) => u.role === 'AUDITOR')))
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
-  const set = (field) => (e) => setForm(f => ({ ...f, [field]: e.target.value }));
+  const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -31,7 +39,9 @@ export default function AuditorsPage() {
       load();
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to create auditor.');
-    } finally { setSaving(false); }
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async (id, username) => {
@@ -41,19 +51,34 @@ export default function AuditorsPage() {
   };
 
   return (
-    <div>
+    <div className="content-page">
       <div className="page-header">
-        <h1 className="page-title">Auditors</h1>
+        <div>
+          <p className="eyebrow">Access Control</p>
+          <h1 className="page-title">Auditors</h1>
+          <p className="page-subtitle">
+            Create and manage auditor accounts with limited monitoring access.
+          </p>
+        </div>
+
         {!showForm && (
-          <button className="btn-primary" onClick={() => setShowForm(true)}>+ Add Auditor</button>
+          <button className="btn-primary" onClick={() => setShowForm(true)}>
+            + Add Auditor
+          </button>
         )}
       </div>
 
       {showForm && (
-        <div className="card" style={{ maxWidth: 560, marginBottom: '1.5rem' }}>
-          <h2 style={{ fontWeight: 600, marginBottom: '1rem' }}>New Auditor</h2>
+        <div className="form-card">
+          <div className="section-head">
+            <div>
+              <h2 className="section-title">New Auditor</h2>
+              <p className="section-subtitle">Create a new audit-only system account</p>
+            </div>
+          </div>
+
           <form onSubmit={handleCreate}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+            <div className="form-grid form-grid-2">
               <div className="form-group">
                 <label>Full Name</label>
                 <input value={form.fullName} onChange={set('fullName')} />
@@ -71,36 +96,69 @@ export default function AuditorsPage() {
                 <input type="password" value={form.password} onChange={set('password')} required />
               </div>
             </div>
+
             {error && <p className="error-msg">{error}</p>}
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <button type="submit" className="btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Add Auditor'}</button>
-              <button type="button" className="btn-secondary" onClick={() => setShowForm(false)}>Cancel</button>
+
+            <div className="form-actions">
+              <button type="submit" className="btn-primary" disabled={saving}>
+                {saving ? 'Saving...' : 'Add Auditor'}
+              </button>
+              <button type="button" className="btn-secondary" onClick={() => setShowForm(false)}>
+                Cancel
+              </button>
             </div>
           </form>
         </div>
       )}
 
-      {loading ? <div className="spinner">Loading…</div> : (
-        <div className="card" style={{ padding: 0 }}>
-          <table>
-            <thead>
-              <tr><th>Username</th><th>Full Name</th><th>Email</th><th>Actions</th></tr>
-            </thead>
-            <tbody>
-              {auditors.length === 0 ? (
-                <tr><td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No auditors found.</td></tr>
-              ) : auditors.map(u => (
-                <tr key={u.id}>
-                  <td style={{ fontWeight: 500, fontFamily: 'monospace' }}>{u.username}</td>
-                  <td>{u.fullName || '—'}</td>
-                  <td>{u.email || '—'}</td>
-                  <td>
-                    <button className="btn-danger" onClick={() => handleDelete(u.id, u.username)}>Delete</button>
-                  </td>
+      {loading ? (
+        <div className="state-box">Loading auditors...</div>
+      ) : (
+        <div className="table-card">
+          <div className="table-header-row">
+            <div>
+              <h2 className="table-title">Auditor Accounts</h2>
+              <p className="table-subtitle">Usernames, profile info, and account actions</p>
+            </div>
+          </div>
+
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Username</th>
+                  <th>Full Name</th>
+                  <th>Email</th>
+                  <th>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {auditors.length === 0 ? (
+                  <tr>
+                    <td colSpan={4}>
+                      <div className="empty-row">No auditors found.</div>
+                    </td>
+                  </tr>
+                ) : (
+                  auditors.map((u) => (
+                    <tr key={u.id}>
+                      <td className="mono-cell strong-cell">{u.username}</td>
+                      <td>{u.fullName || '—'}</td>
+                      <td>{u.email || '—'}</td>
+                      <td>
+                        <button
+                          className="btn-danger"
+                          onClick={() => handleDelete(u.id, u.username)}
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

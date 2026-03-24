@@ -10,59 +10,89 @@ export default function AuditPage() {
   useEffect(() => {
     setLoading(true);
     getAuditLog(page)
-      .then(({ data }) => { setLogs(data.content); setTotalPages(data.totalPages); })
+      .then(({ data }) => {
+        setLogs(data.content);
+        setTotalPages(data.totalPages);
+      })
       .finally(() => setLoading(false));
   }, [page]);
 
   return (
-    <div>
+    <div className="content-page">
       <div className="page-header">
-        <h1 className="page-title">Audit Log</h1>
+        <div>
+          <p className="eyebrow">History</p>
+          <h1 className="page-title">Audit Log</h1>
+          <p className="page-subtitle">
+            Review system events, asset operations, and user actions across the platform.
+          </p>
+        </div>
       </div>
 
-      {loading ? <div className="spinner">Loading…</div> : (
+      {loading ? (
+        <div className="state-box">Loading audit log...</div>
+      ) : (
         <>
-          <div className="card" style={{ padding: 0 }}>
-            <table>
-              <thead>
-                <tr><th>Time</th><th>Action</th><th>Entity</th><th>Details</th><th>Performed By</th></tr>
-              </thead>
-              <tbody>
-                {logs.length === 0 ? (
-                  <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No audit records.</td></tr>
-                ) : logs.map(log => (
-                  <tr key={log.id}>
-                    <td style={{ whiteSpace: 'nowrap', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                      {new Date(log.performedAt).toLocaleString()}
-                    </td>
-                    <td>
-                      <span style={{
-                        fontFamily: 'monospace', fontSize: '0.8rem', background: '#f3f4f6',
-                        padding: '0.15rem 0.4rem', borderRadius: 4,
-                      }}>
-                        {log.action}
-                      </span>
-                    </td>
-                    <td style={{ fontSize: '0.875rem' }}>
-                      {log.entityType} {log.entityId ? `#${log.entityId}` : ''}
-                    </td>
-                    <td style={{ fontSize: '0.875rem', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {log.details}
-                    </td>
-                    <td style={{ fontWeight: 500, fontSize: '0.875rem' }}>{log.performedBy}</td>
+          <div className="table-card">
+            <div className="table-header-row">
+              <div>
+                <h2 className="table-title">Activity Stream</h2>
+                <p className="table-subtitle">Chronological record of changes and operations</p>
+              </div>
+            </div>
+
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>Action</th>
+                    <th>Entity</th>
+                    <th>Details</th>
+                    <th>Performed By</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {logs.length === 0 ? (
+                    <tr>
+                      <td colSpan={5}>
+                        <div className="empty-row">No audit records.</div>
+                      </td>
+                    </tr>
+                  ) : (
+                    logs.map((log) => (
+                      <tr key={log.id}>
+                        <td className="muted-cell">{new Date(log.performedAt).toLocaleString()}</td>
+                        <td>
+                          <span className="audit-action-pill">{log.action}</span>
+                        </td>
+                        <td>
+                          {log.entityType} {log.entityId ? `#${log.entityId}` : ''}
+                        </td>
+                        <td className="details-cell">{log.details}</td>
+                        <td className="strong-cell">{log.performedBy}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
 
-          {/* Pagination */}
-          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginTop: '1.25rem' }}>
-            <button className="btn-secondary" disabled={page === 0} onClick={() => setPage(p => p - 1)}>← Prev</button>
-            <span style={{ padding: '0.5rem 0.75rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+          <div className="pagination-bar">
+            <button className="btn-secondary" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+              ← Prev
+            </button>
+            <span className="pagination-text">
               Page {page + 1} of {totalPages}
             </span>
-            <button className="btn-secondary" disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}>Next →</button>
+            <button
+              className="btn-secondary"
+              disabled={page >= totalPages - 1}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              Next →
+            </button>
           </div>
         </>
       )}
